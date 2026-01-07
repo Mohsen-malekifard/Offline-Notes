@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Offline Notes App</title>
+
+<style>
+:root {
+  --bg: #020617;
+  --card: #020617;
+  --accent: #38bdf8;
+  --yellow: #facc15;
+  --red: #ef4444;
+  --muted: #64748b;
+}
+
+* {
+  box-sizing: border-box;
+  font-family: system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at top, #020617, #000);
+  color: #e5e7eb;
+}
+
+header {
+  padding: 16px;
+  text-align: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.app {
+  max-width: 900px;
+  margin: auto;
+  padding: 16px;
+}
+
+.top {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.top input {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+  background: #020617;
+  color: #e5e7eb;
+}
+
+.editor {
+  background: #020617;
+  border-radius: 16px;
+  padding: 12px;
+  margin-bottom: 20px;
+}
+
+.editor input,
+.editor textarea {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #e5e7eb;
+  margin-bottom: 8px;
+}
+
+.editor textarea {
+  min-height: 80px;
+  resize: none;
+}
+
+.editor button {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: none;
+  background: var(--accent);
+  color: #020617;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.notes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.note {
+  background: #020617;
+  border-radius: 14px;
+  padding: 12px;
+  position: relative;
+}
+
+.note h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+.note p {
+  font-size: .9rem;
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+
+.note .actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+}
+
+.note button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.pin {
+  color: var(--yellow);
+}
+
+.delete {
+  color: var(--red);
+}
+</style>
+</head>
+
+<body>
+<header>Offline Notes</header>
+
+<div class="app">
+  <div class="top">
+    <input id="search" placeholder="Search notes..." />
+  </div>
+
+  <div class="editor">
+    <input id="title" placeholder="Title" />
+    <textarea id="content" placeholder="Write your note..."></textarea>
+    <button id="save">Save Note</button>
+  </div>
+
+  <div class="notes" id="notes"></div>
+</div>
+
+<script>
+let notes = JSON.parse(localStorage.getItem("notes")) || [];
+let editingId = null;
+
+const titleEl = document.getElementById("title");
+const contentEl = document.getElementById("content");
+const notesEl = document.getElementById("notes");
+const searchEl = document.getElementById("search");
+
+function saveStorage() {
+  localStorage.setItem("notes", JSON.stringify(notes));
+}
+
+function render(filter = "") {
+  notesEl.innerHTML = "";
+
+  const sorted = [...notes].sort((a, b) => b.pinned - a.pinned);
+
+  sorted
+    .filter(n =>
+      n.title.toLowerCase().includes(filter) ||
+      n.content.toLowerCase().includes(filter)
+    )
+    .forEach(note => {
+      const div = document.createElement("div");
+      div.className = "note";
+
+      div.innerHTML = `
+        <div class="actions">
+          <button class="pin">${note.pinned ? "★" : "☆"}</button>
+          <button class="delete">✕</button>
+        </div>
+        <h3>${note.title}</h3>
+        <p>${note.content}</p>
+      `;
+
+      div.querySelector(".pin").onclick = () => {
+        note.pinned = !note.pinned;
+        saveStorage();
+        render(searchEl.value.toLowerCase());
+      };
+
+      div.querySelector(".delete").onclick = () => {
+        notes = notes.filter(n => n.id !== note.id);
+        saveStorage();
+        render(searchEl.value.toLowerCase());
+      };
+
+      div.onclick = e => {
+        if (e.target.tagName === "BUTTON") return;
+        editingId = note.id;
+        titleEl.value = note.title;
+        contentEl.value = note.content;
+      };
+
+      notesEl.appendChild(div);
+    });
+}
+
+document.getElementById("save").onclick = () => {
+  if (!titleEl.value.trim()) return;
+
+  if (editingId) {
+    const n = notes.find(n => n.id === editingId);
+    n.title = titleEl.value;
+    n.content = contentEl.value;
+    editingId = null;
+  } else {
+    notes.push({
+      id: Date.now(),
+      title: titleEl.value,
+      content: contentEl.value,
+      pinned: false
+    });
+  }
+
+  titleEl.value = "";
+  contentEl.value = "";
+  saveStorage();
+  render(searchEl.value.toLowerCase());
+};
+
+searchEl.oninput = e => {
+  render(e.target.value.toLowerCase());
+};
+
+render();
+</script>
+</body>
+</html>
